@@ -208,7 +208,7 @@ maxEVValueLen = 10
 ev_field_string = "\"email_verified\":true,"
 ev_field_value = pad_string(ev_field_string, maxEVKVPairLen)
 ev_field_len_value = '"' + str(len(ev_field_string)) + '"'
-ev_index_value = '"' + str(0) + '"' 
+ev_index_value = '"' + str(5) + '"' 
 
 ev_colon_index = 16
 ev_colon_index_value = '"' + str(ev_colon_index) + '"'

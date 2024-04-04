@@ -104,7 +104,8 @@ template identity(
     signal input aud_field[maxAudKVPairLen]; // ASCII
     signal input aud_field_len; // ASCII
     signal input aud_index; // index of aud field in ASCII jwt
-    AssertNotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
+    signal aud_not_escaped <== NotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
+    aud_not_escaped === 1;
     CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxAudKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, aud_field, aud_field_len, aud_index); 
 
     // Perform necessary checks on aud field
@@ -141,7 +142,8 @@ template identity(
     signal input uid_field[maxUIDKVPairLen];
     signal input uid_field_len;
     signal input uid_index;
-    AssertNotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
+    signal uid_not_escaped <== NotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
+    uid_not_escaped === 1;
     CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxUIDKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, uid_field, uid_field_len, uid_index);
 
     // Perform necessary checks on user id field. Some fields this might be in practice are "sub" or "email"
@@ -161,11 +163,15 @@ template identity(
     signal input use_extra_field;
     use_extra_field * (use_extra_field-1) === 0; // Ensure 0 or 1
 
+    signal ef_not_escaped <== NotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, extra_index);
+    signal ef_escaped <== NOT()(ef_not_escaped);
     signal ef_passes <== CheckSubstrInclusionPolyBoolean(max_ascii_jwt_payload_len, maxEFKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, extra_field, extra_field_len, extra_index);
 
-    // Fail if use_extra_field = 1 and ef_passes = 0
+    // Fail if use_extra_field = 1, and ef_passes = 0
     signal not_ef_passes <== NOT()(ef_passes);
-    signal ef_fail <== AND()(use_extra_field, not_ef_passes);
+    signal ef_fail_1 <== AND()(use_extra_field, not_ef_passes);
+    signal ef_fail_2 <== AND()(use_extra_field, ef_escaped);
+    signal ef_fail <== OR()(ef_fail_1, ef_fail_2);
     ef_fail === 0;
 
     // Check email verified field
@@ -183,7 +189,7 @@ template identity(
     // Boolean truth table for checking whether we should fail on the results of 'EmailVerifiedCheck'
     // and `CheckSubstrInclusionPolyBoolean`. We must fail if the uid name is 'email', and the provided
     // `ev_field` is not in the full JWT according to the substring check
-    // uid_is_email | ev_in_jwt | ev_fail
+    // uid_is_email | ev_in_jwt | ev_fail_1
     //     1        |     1     |   1 
     //     1        |     0     |   0
     //     0        |     1     |   1
@@ -191,7 +197,12 @@ template identity(
     signal uid_is_email <== EmailVerifiedCheck(maxEVNameLen, maxEVValueLen, maxUIDNameLen)(ev_name, ev_value, ev_value_len, uid_name, uid_name_len);
     signal ev_in_jwt <== CheckSubstrInclusionPolyBoolean(max_ascii_jwt_payload_len, maxEVKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, ev_field, ev_field_len, ev_index);
     signal not_ev_in_jwt <== NOT()(ev_in_jwt);
-    signal ev_fail <== AND()(uid_is_email, not_ev_in_jwt);
+    signal ev_fail_1 <== AND()(uid_is_email, not_ev_in_jwt);
+
+    signal ev_not_escaped <== NotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, ev_index);
+    signal ev_escaped <== NOT()(ev_not_escaped);
+    signal ev_fail_2 <== AND()(uid_is_email, ev_escaped);
+    signal ev_fail <== OR()(ev_fail_1, ev_fail_2);
     ev_fail === 0;
 
     JWTFieldCheck(maxEVKVPairLen, maxEVNameLen, maxEVValueLen)(ev_field, ev_field_len, ev_index, ev_name_len, ev_value_index, ev_value_len, ev_colon_index, ev_name, ev_value);
@@ -201,7 +212,8 @@ template identity(
     signal input iss_field[maxIssKVPairLen];
     signal input iss_field_len;
     signal input iss_index;
-    AssertNotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
+    signal iss_not_escaped <== NotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
+    iss_not_escaped === 1;
     CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxIssKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, iss_field, iss_field_len, iss_index);
 
     // Perform necessary checks on iss field
@@ -224,7 +236,8 @@ template identity(
     signal input iat_field[maxIatKVPairLen];
     signal input iat_field_len;
     signal input iat_index;
-    AssertNotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
+    signal iat_not_escaped <== NotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
+    iat_not_escaped === 1;
     CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxIatKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, iat_field, iat_field_len, iat_index);
 
     // Perform necessary checks on iat field
@@ -254,7 +267,8 @@ template identity(
     signal input nonce_field[maxNonceKVPairLen];
     signal input nonce_field_len;
     signal input nonce_index;
-    AssertNotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
+    signal nonce_not_escaped <== NotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
+    nonce_not_escaped === 1;
     CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxNonceKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, nonce_field, nonce_field_len, nonce_index);
 
     // Perform necessary checks on nonce field
