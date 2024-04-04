@@ -104,6 +104,7 @@ template identity(
     signal input aud_field[maxAudKVPairLen]; // ASCII
     signal input aud_field_len; // ASCII
     signal input aud_index; // index of aud field in ASCII jwt
+    AssertNotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
     CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxAudKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, aud_field, aud_field_len, aud_index); 
 
     // Perform necessary checks on aud field
@@ -140,6 +141,7 @@ template identity(
     signal input uid_field[maxUIDKVPairLen];
     signal input uid_field_len;
     signal input uid_index;
+    AssertNotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
     CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxUIDKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, uid_field, uid_field_len, uid_index);
 
     // Perform necessary checks on user id field. Some fields this might be in practice are "sub" or "email"
@@ -199,6 +201,7 @@ template identity(
     signal input iss_field[maxIssKVPairLen];
     signal input iss_field_len;
     signal input iss_index;
+    AssertNotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
     CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxIssKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, iss_field, iss_field_len, iss_index);
 
     // Perform necessary checks on iss field
@@ -221,6 +224,7 @@ template identity(
     signal input iat_field[maxIatKVPairLen];
     signal input iat_field_len;
     signal input iat_index;
+    AssertNotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
     CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxIatKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, iat_field, iat_field_len, iat_index);
 
     // Perform necessary checks on iat field
@@ -250,6 +254,7 @@ template identity(
     signal input nonce_field[maxNonceKVPairLen];
     signal input nonce_field_len;
     signal input nonce_index;
+    AssertNotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
     CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxNonceKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, nonce_field, nonce_field_len, nonce_index);
 
     // Perform necessary checks on nonce field

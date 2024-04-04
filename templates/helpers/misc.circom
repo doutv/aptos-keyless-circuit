@@ -187,3 +187,13 @@ template Base64DecodedLength(maxN) {
     //decoded_len <== q + reducer;
     //log("decoded_len", decoded_len);
 }
+
+// Given an input array 'in', fails if the character before `idx` is `\`
+template AssertNotEscaped(len) {
+    signal input in[len];
+    signal input idx;
+    signal char <== SelectArrayValue(len)(in, idx-1);
+    signal is_escaped <== IsEqual()([char, 27]);
+    signal not_escaped <== NOT()(is_escaped);
+    not_escaped === 1;
+}
