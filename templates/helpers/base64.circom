@@ -48,16 +48,20 @@ template Base64URLLookup() {
     signal sum_09 <== sum_az + range_09 * (in + 4);
 
     // '-'
-    component equal_plus = IsZero();
-    equal_plus.in <== in - 62;
-    signal sum_plus <== sum_09 + equal_plus.out * (in + 19);
+    component equal_minus = IsZero();
+    equal_minus.in <== in - 45;
+    // https://www.cs.cmu.edu/~pattis/15-1XX/common/handouts/ascii.html ascii '-' (45)
+    // https://base64.guru/learn/base64-characters  == 62 in base64
+    signal sum_minus <== sum_09 + equal_minus.out * 62;
 
     // '_'
-    component equal_slash = IsZero();
-    equal_slash.in <== in - 63;
-    signal sum_slash <== sum_plus + equal_slash.out * (in + 16);
+    component equal_underscore = IsZero();
+    equal_underscore.in <== in - 95;
+    // https://www.cs.cmu.edu/~pattis/15-1XX/common/handouts/ascii.html ascii '_' (95)
+    // https://base64.guru/learn/base64-characters == 63 in base64
+    signal sum_underscore <== sum_minus + equal_underscore.out * 63;
 
-    out <== sum_slash;
+    out <== sum_underscore;
 
     // '='
     component equal_eqsign = IsZero();
@@ -67,7 +71,7 @@ template Base64URLLookup() {
     component zero_padding = IsZero();
     zero_padding.in <== in;
 
-    signal result <== range_AZ + range_az + range_09 + equal_plus.out + equal_slash.out + equal_eqsign.out + zero_padding.out;
+    signal result <== range_AZ + range_az + range_09 + equal_minus.out + equal_underscore.out + equal_eqsign.out + zero_padding.out;
     1 === result;
 }
 
@@ -87,8 +91,10 @@ template Base64Decode(N) {
             bits_out[i\4][j] = Bits2Num(8);
         }
 
+
         for (var j = 0; j < 4; j++) {
             bits_in[i\4][j] = Num2Bits(6);
+
             translate[i\4][j] = Base64URLLookup();
             translate[i\4][j].in <== in[i+j];
             translate[i\4][j].out ==> bits_in[i\4][j].in;
