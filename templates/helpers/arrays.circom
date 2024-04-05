@@ -118,38 +118,8 @@ template CheckSubstrInclusionPoly(maxStrLen, maxSubstrLen) {
     signal input substr_len;
     signal input start_index;
 
-    signal substr_hash <== HashBytesToFieldWithLen(maxSubstrLen)(substr, substr_len);
-    signal random_challenge <== Poseidon(4)([str_hash, substr_hash, substr_len, start_index]);
-
-    signal challenge_powers[maxStrLen];
-    challenge_powers[0] <== 1;
-    challenge_powers[1] <== random_challenge;
-    for (var i = 2; i < maxStrLen; i++) {
-        challenge_powers[i] <== challenge_powers[i-1] * random_challenge;
-    }
-    signal selector_bits[maxStrLen] <== ArraySelector(maxStrLen)(start_index, start_index+substr_len); 
-
-    signal selected_str[maxStrLen];
-    for (var i = 0; i < maxStrLen; i++) {
-        selected_str[i] <== selector_bits[i] * str[i];
-    }
-    
-    signal str_poly[maxStrLen];
-    for (var i = 0; i < maxStrLen; i++) {
-        str_poly[i] <== selected_str[i] * challenge_powers[i];
-    }
-
-    signal substr_poly[maxSubstrLen];
-    for (var i = 0; i < maxSubstrLen; i++) {
-        substr_poly[i] <== substr[i] * challenge_powers[i];
-    }
-
-    signal str_poly_eval <== CalculateTotal(maxStrLen)(str_poly);
-    signal substr_poly_eval <== CalculateTotal(maxSubstrLen)(substr_poly);
-
-    var distinguishing_value = SelectArrayValue(maxStrLen)(challenge_powers, start_index);
-
-    str_poly_eval === distinguishing_value * substr_poly_eval;
+    signal passes <== CheckSubstrInclusionPolyBoolean(maxStrLen, maxSubstrLen)(str, str_hash, substr, substr_len, start_index);
+    passes === 1;
 }
 
 // Checks that `substr` of length `substr_len` matches `str` beginning at `start_index`
@@ -310,6 +280,7 @@ template ASCIIDigitsToField(maxLen) {
 }
 
 // Given arrays `one` and `two`, which are both 0-padded after `len`, check that `one[0:len]` is the reverse of `two[0:len]`
+// WARNING: This subcircuit is unused and has not been sufficient tested
 template ReverseCheck(maxStrLen) {
     signal input one[maxStrLen];
     signal input two[maxStrLen];
