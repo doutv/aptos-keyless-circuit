@@ -91,7 +91,6 @@ template Base64Decode(N) {
             bits_out[i\4][j] = Bits2Num(8);
         }
 
-
         for (var j = 0; j < 4; j++) {
             bits_in[i\4][j] = Num2Bits(6);
 
