@@ -62,6 +62,7 @@ def limbs_to_long(limbs):
 
     return val
 
+iss_value = "test.oidc.provider"
 iat_value = "1700255944" # Friday, November 17, 2023
 
 exp_date_num = 111_111_111_111
@@ -69,7 +70,7 @@ exp_date = str(exp_date_num) # 12-21-5490
 exp_horizon_num = 999_999_999_999 # ~31,710 years
 exp_horizon = str(exp_horizon_num) 
 nonce_value = "2284473333442251804379681643965308154311773667525398119496797545594705356495"
-public_inputs_hash_value = '"' +str(20184347722831264297183009689956363527052066666845340178129495539169215716642) + '"'
+public_inputs_hash_value = '"' + str(2746860168857395124362656422995347965103369063946754887881648254791159554642) + '"'
 
 nonce = int(nonce_value)
 
@@ -77,7 +78,7 @@ jwt_max_len = 192*8
 
 # Dictionary encoding of the JWT
 jwt_dict = {
-    "iss": "https://accounts.google.com",
+    "iss": iss_value,
     "azp": "407408718192.apps.googleusercontent.com",
     "aud": "407408718192.apps.googleusercontent.com",
     "sub": "113990307082899718775",
@@ -222,7 +223,7 @@ ev_value_len_value = '"' + str(len(ev_value)) + '"'
 maxIssKVPairLen = 140
 maxIssNameLen = 40 
 maxIssValueLen = 120
-iss_field_string = "\"iss\":\"https://accounts.google.com\","
+iss_field_string = "\"iss\":\"" + iss_value + "\","
 iss_field_value = pad_string(iss_field_string, maxIssKVPairLen)
 iss_field_len_value = '"' + str(len(iss_field_string)) + '"'
 iss_index_value = '"' + str(jwt_payload.index("iss")-1) + '"' 
@@ -231,7 +232,6 @@ iss_colon_index = iss_field_string.index(":")
 iss_colon_index_value = '"' + str(iss_colon_index) + '"'
 iss_value_index_value = '"' + str(iss_colon_index+2) + '"' # TODO: Doesn't work with whitespace
 iss_name = "iss"
-iss_value = "https://accounts.google.com"
 iss_name_value = pad_string(iss_name, maxIssNameLen)
 iss_value_value = pad_string(iss_value, maxIssValueLen)
 iss_value_len_value = '"' + str(len(iss_value)) + '"'
