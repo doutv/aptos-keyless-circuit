@@ -68,7 +68,7 @@ iat_value = "1700255944" # Friday, November 17, 2023
 exp_date_num = 111_111_111_111
 exp_date = str(exp_date_num) # 12-21-5490
 exp_horizon_num = 999_999_999_999 # ~31,710 years
-exp_horizon = str(exp_horizon_num) 
+exp_horizon = str(exp_horizon_num)
 nonce_value = "2284473333442251804379681643965308154311773667525398119496797545594705356495"
 public_inputs_hash_value = '"' + str(2746860168857395124362656422995347965103369063946754887881648254791159554642) + '"'
 
@@ -209,7 +209,7 @@ maxEVValueLen = 10
 ev_field_string = "\"email_verified\":true,"
 ev_field_value = pad_string(ev_field_string, maxEVKVPairLen)
 ev_field_len_value = '"' + str(len(ev_field_string)) + '"'
-ev_index_value = '"' + str(5) + '"' 
+ev_index_value = '"' + str(5) + '"'
 
 ev_colon_index = 16
 ev_colon_index_value = '"' + str(ev_colon_index) + '"'
@@ -221,12 +221,12 @@ ev_value_value = pad_string(ev_value, maxEVValueLen)
 ev_value_len_value = '"' + str(len(ev_value)) + '"'
 
 maxIssKVPairLen = 140
-maxIssNameLen = 40 
+maxIssNameLen = 40
 maxIssValueLen = 120
 iss_field_string = "\"iss\":\"" + iss_value + "\","
 iss_field_value = pad_string(iss_field_string, maxIssKVPairLen)
 iss_field_len_value = '"' + str(len(iss_field_string)) + '"'
-iss_index_value = '"' + str(jwt_payload.index("iss")-1) + '"' 
+iss_index_value = '"' + str(jwt_payload.index("iss")-1) + '"'
 
 iss_colon_index = iss_field_string.index(":")
 iss_colon_index_value = '"' + str(iss_colon_index) + '"'
@@ -242,7 +242,7 @@ temp_pubkey_1 = 4497911;
 temp_pubkey_2 = 0;
 temp_pubkey_len = 34;
 jwt_randomness = 42;
-nonce_bitstring = format(nonce, 'b') 
+nonce_bitstring = format(nonce, 'b')
 temp_pubkey_value = "[ \"" + str(temp_pubkey_0) + '"' + ',\"' + str(temp_pubkey_1) + '"' + ',\"' + str(temp_pubkey_2) +'"]'
 temp_pubkey_len_value = '"' + str(temp_pubkey_len) + '"'
 jwt_randomness_value = '"' + str(jwt_randomness) + '"'
@@ -259,7 +259,7 @@ nonce_colon_index = nonce_field_string.index(":")
 nonce_colon_index_value = '"' + str(nonce_colon_index) + '"'
 nonce_value_index_value = '"' + str(nonce_colon_index+2) + '"' # TODO: Doesn't work with whitespace
 nonce_name = "nonce"
-nonce_value_reversed = nonce_value[::-1] 
+nonce_value_reversed = nonce_value[::-1]
 nonce_name_value = pad_string(nonce_name, maxNonceNameLen)
 nonce_value_value = pad_string(nonce_value, maxNonceValueLen)
 nonce_value_reversed_value = pad_string(nonce_value_reversed, maxNonceValueLen)
@@ -279,7 +279,7 @@ payload_len = len(jwt_payload_string_no_padding)
 payload_len_value = '"' + str(payload_len) + '"'
 
 # Add SHA2 padding to the end of the b64 jwt string
-unsigned_b64_jwt_bits = "" 
+unsigned_b64_jwt_bits = ""
 for c in unsigned_b64_jwt_string:
     bits = bin(ord(c))
     bits = bits[2:].zfill(8)
@@ -375,8 +375,8 @@ for l in mod_limbs:
     mod_value += '"' + str(l) + '"' + ","
 mod_value = mod_value[:-1] + "]"
 
-hash_limbs = long_to_limbs(bytes_to_long(hash.digest()))[:4]
-##print(hash_limbs)
+# hash_limbs = long_to_limbs(bytes_to_long(hash.digest()))[:4]
+# print(hash_limbs)
 
 json_dict = {
         "\"jwt\"": jwt_value,

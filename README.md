@@ -17,7 +17,7 @@ To generate a sample prover and verifier key pair, run the following commands:
 ./trusted-setup.sh main sample_keypair
 ```
 
-When it has finished running, there will be two files, corresponding to the prover `.zkey` and verifier `.zkey` key each, in the `sample_keypair` directory. 
+When it has finished running, there will be two files, corresponding to the prover `.zkey` and verifier `.zkey` key each, in the `sample_keypair` directory.
 
 ## Generating a sample proof
 
@@ -54,11 +54,11 @@ circom -l . main.circom --r1cs
 
 Output:
 ```
-non-linear constraints: 1299928
+non-linear constraints: 1312453
 linear constraints: 0
 public inputs: 1
 private inputs: 7123 (7033 belong to witness)
 public outputs: 0
-wires: 1270049
-labels: 6093448
+wires: 1282587
+labels: 6162830
 ```
