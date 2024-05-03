@@ -13,16 +13,19 @@ To install, please run:
 
 To generate a sample prover and verifier key pair, run the following commands:
 
-```
-./trusted-setup.sh main sample_keypair
+```sh
+./trusted-setup.sh --local tmp
+# ./trusted-setup.sh main sample_keypair
 ```
 
-When it has finished running, there will be two files, corresponding to the prover `.zkey` and verifier `.zkey` key each, in the `sample_keypair` directory.
+<!-- When it has finished running, there will be two files, corresponding to the prover `.zkey` and verifier `.zkey` key each, in the `sample_keypair` directory. -->
 
 ## Generating a sample proof
+```sh
+./create-proofs-for-testing.sh --local ./tmp/prover_key.zkey ./tmp
+```
 
 To generate a sample proof for the statement encoded in `input-gen.py`, do the following.
-
 First, make sure you have a proving key set up (see [above](#generating-the-proving-key)).
 
 Second, call the following script, where:
