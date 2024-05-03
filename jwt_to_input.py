@@ -1,21 +1,12 @@
 #!/usr/bin/env python3
 
 import base64
-import binascii
 import json
 import os
 from pprint import pprint
 
-import Crypto
-from Crypto.Hash import SHA256
-from Crypto.PublicKey import RSA
-from Crypto.Signature.pkcs1_15 import PKCS115_SigScheme
+import poseidon
 from Crypto.Util.number import bytes_to_long, ceil_div, long_to_bytes
-from cryptography.hazmat.backends import default_backend as crypto_default_backend
-from cryptography.hazmat.primitives import serialization as crypto_serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-
-# from google.auth import jwt
 from jwt.api_jwt import decode_complete
 
 jwt_max_len = 192 * 8
@@ -29,7 +20,7 @@ def pad_string(string, max_len) -> list[str]:
     return padded_string
 
 
-def long_to_limbs(n):
+def long_to_limbs(n: int) -> list[int]:
     MAX = 2048
     BASE = 64
     limbs = []
@@ -46,92 +37,176 @@ def handle_signature(signature_str):
     return limbs
 
 
-if __name__ == "__main__":
-    with open("jwt.in", "r") as file:
-        raw = file.read().strip()
-    header_str, payload_str, signature_str = raw.split(".", 2)
-
-    jwt_decoded = decode_complete(
-        raw, verify=False, options={"verify_signature": False}
+def handle_aud(
+    payload_dict: dict,
+    maxKVPairLen: int,
+    maxNameLen: int,
+    maxValueLen: int,
+) -> dict:
+    res = handle_field(
+        "aud",
+        "aud",
+        payload_dict,
+        maxKVPairLen,
+        maxNameLen,
+        maxValueLen,
     )
-    pprint(jwt_decoded)
+    res["private_aud_value"] = res.pop("aud_value")
+    res["private_aud_value_len"] = res.pop("aud_value_len")
+    res["use_aud_override"] = 0
+    res["override_aud_value"] = pad_string("", maxValueLen)
+    res["override_aud_value_len"] = 0
+    return res
+
+
+def handle_extra_field() -> dict:
+    res = {
+        "extra_field": pad_string("", 350),
+        "extra_field_len": 0,
+        "extra_index": 0,
+        "use_extra_field": 0,
+    }
+    return res
+
+
+def handle_field(
+    dict_key: str,
+    field_name: str,
+    payload_dict: dict,
+    maxKVPairLen: int,
+    maxNameLen: int,
+    maxValueLen: int,
+) -> dict:
+    res = {}
+    payload = json.dumps(payload_dict)
+    field_value = str(payload_dict[field_name])
+    field_full_str: str = f'"{field_name}": "{field_value}"'  # "aud": "aud_value"
+    res[f"{dict_key}_field"] = pad_string(field_full_str, maxKVPairLen)
+    res[f"{dict_key}_field_len"] = len(field_full_str)
+    res[f"{dict_key}_index"] = payload.index(f'"{field_name}"')
+    res[f"{dict_key}_name"] = pad_string(field_name, maxNameLen)
+    res[f"{dict_key}_value"] = pad_string(field_value, maxValueLen)
+    res[f"{dict_key}_value_len"] = len(field_value)
+    res[f"{dict_key}_value_index"] = field_full_str.index(field_value)
+    res[f"{dict_key}_colon_index"] = field_full_str.index(":")
+
+    return res
+
+
+def handle_sha256_padding(jwt_raw: str) -> dict:
+    res = {
+        "jwt_num_sha2_blocks": len(jwt_raw) * 8 // 512,
+    }
+    unsigned_jwt_str = jwt_raw[: jwt_raw.rfind(".")]
+    unsigned_b64_jwt_bits = bin(
+        int.from_bytes(unsigned_jwt_str.encode("utf-8"), byteorder="big")
+    ).lstrip("0b")
+    L = len(unsigned_b64_jwt_bits)
+    L_bit_encoded = format(L, "b").zfill(64)
+    L_byte_encoded = ""
+    for i in range(8):
+        idx = i * 8
+        bits = L_bit_encoded[idx : idx + 8]
+        ascii_char = chr(int(bits, 2))
+        L_byte_encoded += ascii_char
+    res["jwt_len_bit_encoded"] = pad_string(L_byte_encoded, 8)
+
+    L_mod = L % 512
+    # https://www.rfc-editor.org/rfc/rfc4634.html#section-4.1
+    # 4.1.a append '1'
+    unsigned_b64_jwt_bits += "1"
+    # 4.1.b Append 'K' 0s where K is the smallest non-negative integer solution to L+1+K = 448 mod 512, and L is the length of the message in bits
+    K = 448 - L_mod - 1
+    padding_without_len = "1" + "0" * K
+    padding_without_len = padding_without_len.ljust(512, "0")
+    padding_without_len_bytes = ""
+    for i in range(64):
+        idx = i * 8
+        bits = padding_without_len[idx : idx + 8]
+        ascii_char = chr(int(bits, 2))
+        padding_without_len_bytes += ascii_char
+    res["padding_without_len"] = pad_string(padding_without_len_bytes, 64)
+    return res
+
+
+def compute_public_inputs_hash(
+    pubkey: list[int], pepper: int, jwt_payload: dict, pubkey_modulus: list[int]
+) -> int:
+    # TODO: Implement this
+    # signal computed_public_inputs_hash <== Poseidon(14)([temp_pubkey[0], temp_pubkey[1], temp_pubkey[2], temp_pubkey_len, addr_seed, exp_date, exp_delta, hashed_iss_value, use_extra_field, hashed_extra_field, hashed_jwt_header, hashed_pubkey_modulus, override_aud_val_hashed, use_aud_override]);
+    poseidon_simple, t = poseidon.parameters.case_simple()
+    res = int(poseidon_simple.run_hash([*pubkey, pepper]))
+    return res
+
+
+def get_inputs():
+    with open("jwt.in", "r") as file:
+        jwt_raw = file.read().strip()
+    epk = [123, 456, 789]
+    pepper = 42
+    jwt_randomness = 42
+    # Google RSA public key (n)
+    google_pk_raw = "puQJMii881LWwQ_OY2pOZx9RJTtpmUhAn2Z4_zrbQ9WmQqld0ufKesvwIAmuFIswzfOWxv1-ijZWwWrVafZ3MOnoB_UJFgjCPwJyfQiwwNMK80MfEm7mDO0qFlvrmLhhrYZCNFXYKDRibujCPF6wsEKcb3xFwBCH4UFaGmzsO0iJiqD2qay5rqYlucV4-kAIj4A6yrQyXUWWTlYwedbM5XhpuP1WxqO2rjHVLmwECUWqEScdktVhXXQ2CW6zvvyzbuaX3RBkr1w-J2U07vLZF5-RgnNjLv6WUNUwMuh-JbDU3tvmAahnVNyIcPRCnUjMk03kTqbSkZfu6sxWF0qNgw"
+    google_pk_n = int.from_bytes(google_pk_raw.encode("utf-8"), byteorder="big")
+    pubkey_modulus = long_to_limbs(google_pk_n)
+
+    return jwt_raw, epk, pepper, jwt_randomness, pubkey_modulus
+
+
+def main():
+    jwt_raw, epk, pepper, jwt_randomness, pubkey_modulus = get_inputs()
+
+    header_raw, payload_raw, signature_raw = jwt_raw.split(".", 2)
+    header_with_separator = header_raw + "."
+    jwt_raw_unsigned = jwt_raw[: jwt_raw.rfind(".")]
+    jwt_dict = decode_complete(
+        jwt_raw, verify=False, options={"verify_signature": False}
+    )
+    pprint(jwt_dict["header"])
+    pprint(jwt_dict["payload"])
     json_dict = {
-        "jwt": pad_string(raw, jwt_max_len),
-        "jwt_header_with_separator": pad_string(header_str, jwt_max_header_len),
-        "jwt_payload": pad_string(payload_str, jwt_max_payload_len),
-        # "public_inputs_hash": public_inputs_hash_value,
-        # "header_len_with_separator": header_len_with_separator_value,
-        "signature": handle_signature(signature_str),
-        # "pubkey_modulus": mod_value,
-        # "aud_field": aud_field_value,
-        # "aud_field_len": aud_field_len_value,
-        # "aud_index": aud_index_value,
-        # "aud_value_index": aud_value_index_value,
-        # "aud_colon_index": aud_colon_index_value,
-        # "aud_name": aud_name_value,
-        # "uid_field": uid_field_value,
-        # "uid_field_len": uid_field_len_value,
-        # "uid_index": uid_index_value,
-        # "uid_name_len": uid_name_len_value,
-        # "uid_value_index": uid_value_index_value,
-        # "uid_value_len": uid_value_len_value,
-        # "uid_colon_index": uid_colon_index_value,
-        # "uid_name": uid_name_value,
-        # "uid_value": uid_value_value,
-        # "ev_field": ev_field_value,
-        # "ev_field_len": ev_field_len_value,
-        # "ev_index": ev_index_value,
-        # "ev_value_index": ev_value_index_value,
-        # "ev_value_len": ev_value_len_value,
-        # "ev_colon_index": ev_colon_index_value,
-        # "ev_name": ev_name_value,
-        # "ev_value": ev_value_value,
-        # "iss_field": iss_field_value,
-        # "iss_field_len": iss_field_len_value,
-        # "iss_index": iss_index_value,
-        # "iss_value_index": iss_value_index_value,
-        # "iss_value_len": iss_value_len_value,
-        # "iss_colon_index": iss_colon_index_value,
-        # "iss_name": iss_name_value,
-        # "iss_value": iss_value_value,
-        # "nonce_field": nonce_field_value,
-        # "nonce_field_len": nonce_field_len_value,
-        # "nonce_index": nonce_index_value,
-        # "nonce_value_index": nonce_value_index_value,
-        # "nonce_value_len": nonce_value_len_value,
-        # "nonce_colon_index": nonce_colon_index_value,
-        # "nonce_name": nonce_name_value,
-        # "nonce_value": nonce_value_value,
-        # "temp_pubkey": temp_pubkey_value,
-        # "jwt_randomness": jwt_randomness_value,
-        # "pepper": pepper_value,
-        # "jwt_num_sha2_blocks": jwt_num_sha2_blocks_value,
-        # "iat_field": iat_field_value,
-        # "iat_field_len": iat_field_len_value,
-        # "iat_index": iat_index_value,
-        # "iat_value_index": iat_value_index_value,
-        # "iat_value_len": iat_value_len_value,
-        # "iat_colon_index": iat_colon_index_value,
-        # "iat_name": iat_name_value,
-        # "iat_value": iat_value_value,
-        # "exp_date": exp_date_value,
-        # "exp_delta": exp_horizon_value,
-        # "b64_payload_len": payload_len_value,
-        # "jwt_len_bit_encoded": L_byte_encoded_value,
-        # "padding_without_len": padding_without_len_bytes_value,
-        # "temp_pubkey_len": temp_pubkey_len_value,
-        # "private_aud_value": private_aud_value_value,
-        # "override_aud_value": override_aud_value_value,
-        # "private_aud_value_len": private_aud_value_len_value,
-        # "override_aud_value_len": override_aud_value_len_value,
-        # "use_aud_override": use_aud_override_value,
-        # "extra_field": extra_field_value,
-        # "extra_field_len": extra_field_len_value,
-        # "extra_index": extra_index_value,
-        # "jwt_payload_without_sha_padding": jwt_payload_string_no_padding_value,
-        # "use_extra_field": use_extra_field_value,
+        "jwt": pad_string(jwt_raw_unsigned, jwt_max_len),
+        "jwt_header_with_separator": pad_string(
+            header_with_separator, jwt_max_header_len
+        ),
+        "jwt_payload": pad_string(payload_raw, jwt_max_payload_len),
+        "header_len_with_separator": len(header_with_separator),
+        **handle_sha256_padding(jwt_raw_unsigned),
+        "signature": handle_signature(signature_raw),
+        "pubkey_modulus": pubkey_modulus,
+        **handle_aud(jwt_dict["payload"], 140, 40, 120),
+        **handle_field("uid", "sub", jwt_dict["payload"], 350, 30, 330),
+        "uid_name_len": len("sub"),
+        **handle_field("iss", "iss", jwt_dict["payload"], 140, 40, 120),
+        **handle_field("nonce", "nonce", jwt_dict["payload"], 105, 10, 100),
+        **handle_field("iat", "iat", jwt_dict["payload"], 50, 10, 45),
+        **handle_field(
+            "ev",
+            "email_verified",
+            jwt_dict["payload"],
+            30,
+            20,
+            10,
+        ),
+        **handle_extra_field(),
+        # TODO: Real ephemeral public key
+        "temp_pubkey": epk,
+        "temp_pubkey_len": len(epk),
+        "jwt_randomness": jwt_randomness,
+        "pepper": pepper,
+        "exp_date": jwt_dict["payload"]["exp"],
+        "exp_delta": jwt_dict["payload"]["exp"] - jwt_dict["payload"]["iat"],
+        "b64_payload_len": len(payload_raw),
+        "jwt_payload_without_sha_padding": pad_string(payload_raw, jwt_max_payload_len),
+        "public_inputs_hash": compute_public_inputs_hash(
+            epk, pepper, jwt_dict["payload"], pubkey_modulus
+        ),
     }
     json_str = json.dumps(json_dict)
-    pprint(json_str)
+    # pprint(json_str)
     with open("google-input.json", "w") as f:
         f.write(json_str)
+
+
+if __name__ == "__main__":
+    main()

@@ -75,10 +75,15 @@ proofgen() {
         {
             echo
             echo "Creating python3 virtual env w/ deps..."
-            python3 -m virtualenv ig
-            source ./ig/bin/activate
 
-            pip3 install pyjwt pycryptodome cryptography
+            if [ -f ./ig/bin/activate ]; then
+                source ./ig/bin/activate
+            else
+                python -m virtualenv ig
+                source ./ig/bin/activate
+            fi
+
+            pip3 install pyjwt pycryptodome cryptography poseidon-hash
 
             # pushd templates/
             # {
@@ -89,14 +94,13 @@ proofgen() {
             # popd
 
             echo
-            echo "Running input_gen.py..."
-            touch input.json
-            python3 input_gen.py
+            # touch input.json
+            python3 jwt_to_input.py
             pushd templates/main_js
             {
                 echo
                 echo "Generating witness..."
-                node generate_witness.js main.wasm ../../input.json witness.wtns
+                node generate_witness.js main.wasm ../../google-input.json witness.wtns
             }
             popd
 
