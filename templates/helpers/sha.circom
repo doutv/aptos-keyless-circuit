@@ -1,9 +1,9 @@
 pragma circom 2.1.3;
 
-include "../node_modules/circomlib/circuits/sha256/constants.circom";
-include "../node_modules/circomlib/circuits/sha256/sha256compression.circom";
-include "../node_modules/circomlib/circuits/comparators.circom";
-include "helpers/misc.circom";
+include "circomlib/circuits/sha256/constants.circom";
+include "circomlib/circuits/sha256/sha256compression.circom";
+include "circomlib/circuits/comparators.circom";
+include "./misc.circom";
 
 // Similar to `sha256_unsafe` in https://github.com/TheFrozenFire/snark-jwt-verify/blob/master/circuits/sha256.circom
 // Hashes a bit array message using SHA2_256, hashing every block up to and including `tBlock`. All blocks after `tBlock` are ignored in the output
@@ -80,7 +80,7 @@ template Sha2_256_prepadded_varlen(maxNumBlocks) {
 
 // Verifies SHA2_256 input padding according to https://www.rfc-editor.org/rfc/rfc4634.html#section-4.1
 template Sha2PaddingVerify(maxInputLen) {
-    signal input in[maxInputLen]; // bit array
+    signal input in[maxInputLen]; // byte array
     signal input num_blocks; // Number of 512-bit blocks in `in` including sha padding
     signal input padding_start; // equivalent to L/8, where L is the length of the unpadded message in bits as specified in RFC4634
     signal input L_byte_encoded[8]; // 64-bit encoding of L

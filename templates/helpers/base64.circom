@@ -2,7 +2,7 @@ pragma circom 2.1.3;
 
 // File taken from https://github.com/zkemail/zk-email-verify/blob/main/packages/circuits/helpers/base64.circom
 
-include "../../node_modules/circomlib/circuits/comparators.circom";
+include "circomlib/circuits/comparators.circom";
 
 // http://0x80.pl/notesen/2016-01-17-sse-base64-decoding.html#vector-lookup-base
 // Modified to support Base64URL format instead of Base64
@@ -62,6 +62,7 @@ template Base64URLLookup() {
     signal sum_underscore <== sum_minus + equal_underscore.out * 63;
 
     out <== sum_underscore;
+    //log("sum_underscore (out): ", out);
 
     // '='
     component equal_eqsign = IsZero();
@@ -70,6 +71,16 @@ template Base64URLLookup() {
     // Also decode zero padding as zero padding
     component zero_padding = IsZero();
     zero_padding.in <== in;
+
+
+    //log("zero_padding.out: ", zero_padding.out);
+    //log("equal_eqsign.out: ", equal_eqsign.out);
+    //log("equal_underscore.out: ", equal_underscore.out);
+    //log("equal_minus.out: ", equal_minus.out);
+    //log("range_09: ", range_09);
+    //log("range_az: ", range_az);
+    //log("range_AZ: ", range_AZ);
+    //log("< end Base64URLLookup");
 
     signal result <== range_AZ + range_az + range_09 + equal_minus.out + equal_underscore.out + equal_eqsign.out + zero_padding.out;
     1 === result;
@@ -91,8 +102,13 @@ template Base64Decode(N) {
             bits_out[i\4][j] = Bits2Num(8);
         }
 
+
+        //     log("range_AZ: ", range_AZ);
         for (var j = 0; j < 4; j++) {
             bits_in[i\4][j] = Num2Bits(6);
+
+            //log(">> calling into Base64URLLookup");
+            //log("translate[i\\4][j].in: ", in[i+j]);
 
             translate[i\4][j] = Base64URLLookup();
             translate[i\4][j].in <== in[i+j];

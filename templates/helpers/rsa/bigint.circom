@@ -2,11 +2,11 @@ pragma circom 2.0.2;
 
 // File copied from https://github.com/doubleblind-xyz/circom-rsa/blob/master/circuits/bigint.circom
 
-include "../node_modules/circomlib/circuits/comparators.circom";
-include "../node_modules/circomlib/circuits/bitify.circom";
-include "../node_modules/circomlib/circuits/gates.circom";
+include "circomlib/circuits/comparators.circom";
+include "circomlib/circuits/bitify.circom";
+include "circomlib/circuits/gates.circom";
 
-include "bigint_func.circom";
+include "./bigint_func.circom";
 
 // addition mod 2**n with carry bit
 template ModSum(n) {

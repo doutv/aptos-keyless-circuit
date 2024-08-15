@@ -2,7 +2,7 @@ pragma circom 2.0.0;
 
 // File copied and modified from https://github.com/zkp-application/circom-rsa-verify/blob/main/circuits/rsa_verify.circom, except for the `FpPow65537Mod` template. The only difference is using `FpPow65537Mod` for exponentiation instead of the tempalte provided in the original repo, as it is more efficient
 
-include "fp.circom";
+include "./fp.circom";
 
 template NumToBits(n) {
     signal input in;
@@ -64,10 +64,10 @@ template FpPow65537Mod(n, k) {
 // exp 65537
 template RsaVerifyPkcs1v15(w, nb) {
     //signal input exp[nb];
-    signal input sign[nb];
-    signal input modulus[nb];
+    signal input sign[nb];      // least-significant-limb first
+    signal input modulus[nb];   // least-significant-limb first
 
-    signal input hashed[4];
+    signal input hashed[4];     // least-significant-limb first
 
     // sign ** exp mod modulus
     component pm = FpPow65537Mod(w, nb);

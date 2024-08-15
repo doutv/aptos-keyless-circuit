@@ -2,7 +2,12 @@
 
 set -e
 
-PTAU=/home/okxdex/data/zkdex-pap/shared/powersOfTau28_hez_final_25.ptau
+PTAU=~/Desktop/powersOfTau28_hez_final_21.ptau
+if [ ! -f $PTAU ]; then
+    echo "Set correct ptau file path in the script."
+    exit 1
+fi
+
 scriptdir="$(cd "$(dirname "$0")" >/dev/null 2>&1 && pwd)"
 repodir=$scriptdir
 

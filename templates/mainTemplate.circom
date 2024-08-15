@@ -7,6 +7,7 @@ include "helpers/packing.circom";
 include "helpers/hashtofield.circom";
 include "helpers/sha.circom";
 include "helpers/rsa/rsa_verify.circom";
+include "helpers/jwt_field_parsing.circom";
 include "helpers/rsa/bigint.circom";
 include "../node_modules/circomlib/circuits/poseidon.circom";
 include "../node_modules/circomlib/circuits/bitify.circom";
@@ -17,7 +18,7 @@ template identity(
     maxJWTHeaderLen,    // Max byte length of the full base64 JWT header with separator
     maxJWTPayloadLen,   // Max byte length of the full base64 JWT payload with SHA2 padding
     maxAudKVPairLen,    // Max byte length of the ASCII aud field
-    maxAudNameLen,      // Max byte length of the ASCII aud name
+    maxAudNameLen,      // Max byte length of the ASCII aud name    
     maxAudValueLen,     // Max byte length of the ASCII aud value
     maxIssKVPairLen,    // Max byte length of the ASCII iss field
     maxIssNameLen,      // Max byte length of the ASCII iss name
@@ -44,7 +45,7 @@ template identity(
 
 
     signal input header_len_with_separator;
-    signal input b64_payload_len;
+    signal input b64_payload_len; 
 
     ConcatenationCheck(maxJWTLen, maxJWTHeaderLen, maxJWTPayloadLen)(jwt, jwt_header_with_separator, jwt_payload, header_len_with_separator, b64_payload_len);
 
@@ -63,7 +64,7 @@ template identity(
     var max_num_jwt_blocks = (maxJWTLen*8)\512; // A SHA2 block is 512 bits. '\' performs division rounding up to a whole integer
 
     // Compute hash of JWT
-    signal jwt_sha_hash[256] <== Sha2_256_prepadded_varlen(max_num_jwt_blocks)(jwt_bits, jwt_num_sha2_blocks-1);
+    signal jwt_sha_hash[256] <== Sha2_256_prepadded_varlen(max_num_jwt_blocks)(jwt_bits, jwt_num_sha2_blocks-1); 
 
     var dot = SelectArrayValue(maxJWTLen)(jwt, header_len_with_separator-1);
 
@@ -94,21 +95,24 @@ template identity(
     signal jwt_payload_hash <== HashBytesToFieldWithLen(maxJWTPayloadLen)(jwt_payload, b64_payload_len);
 
     CheckSubstrInclusionPoly(maxJWTPayloadLen, maxJWTPayloadLen)(jwt_payload, jwt_payload_hash, jwt_payload_without_sha_padding, b64_payload_len, 0); // index is 0
+
+    log("jwt_payload_without_sha_padding: ");
     signal ascii_jwt_payload[max_ascii_jwt_payload_len] <== Base64Decode(max_ascii_jwt_payload_len)(jwt_payload_without_sha_padding);
 
     signal ascii_payload_len <== Base64DecodedLength(maxJWTPayloadLen)(b64_payload_len);
 
     signal ascii_jwt_payload_hash <== HashBytesToFieldWithLen(max_ascii_jwt_payload_len)(ascii_jwt_payload, ascii_payload_len);
 
-    /* Check input fields is in the JWT */
+
+    signal string_bodies[max_ascii_jwt_payload_len] <== StringBodies(max_ascii_jwt_payload_len)(ascii_jwt_payload);
 
     // Check aud field is in the JWT
     signal input aud_field[maxAudKVPairLen]; // ASCII
+    signal input aud_field_string_bodies[maxAudKVPairLen]; // ASCII
     signal input aud_field_len; // ASCII
     signal input aud_index; // index of aud field in ASCII jwt
-    signal aud_not_escaped <== NotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
-    aud_not_escaped === 1;
-    CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxAudKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, aud_field, aud_field_len, aud_index);
+    CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxAudKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, aud_field, aud_field_len, aud_index); 
+    CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxAudKVPairLen)(string_bodies, ascii_jwt_payload_hash, aud_field_string_bodies, aud_field_len, aud_index); 
 
     // Perform necessary checks on aud field
     var aud_name_len = 3;
@@ -123,7 +127,7 @@ template identity(
     signal input override_aud_value[maxAudValueLen];
     signal input private_aud_value_len;
     signal input override_aud_value_len;
-
+    
     var s = use_aud_override;
     s * (s-1) === 0; // Ensure s = 0 or s = 1
     for (var i = 0; i < maxAudValueLen; i++) {
@@ -132,7 +136,7 @@ template identity(
     signal aud_value_len;
     aud_value_len <== (override_aud_value_len-private_aud_value_len) * s + private_aud_value_len;
 
-    JWTFieldCheck(maxAudKVPairLen, maxAudNameLen, maxAudValueLen)(aud_field, aud_field_len, aud_index, aud_name_len, aud_value_index, aud_value_len, aud_colon_index, aud_name, aud_value);
+    ParseJWTFieldWithQuotedValue(maxAudKVPairLen, maxAudNameLen, maxAudValueLen)(aud_field, aud_name, aud_value, aud_field_string_bodies, aud_field_len, aud_name_len, aud_value_index, aud_value_len, aud_colon_index);
 
     // Check aud name is correct
     var required_aud_name[aud_name_len] = [97, 117, 100]; // aud
@@ -142,11 +146,11 @@ template identity(
 
     // Check user id field is in the JWT
     signal input uid_field[maxUIDKVPairLen];
+    signal input uid_field_string_bodies[maxUIDKVPairLen];
     signal input uid_field_len;
     signal input uid_index;
-    signal uid_not_escaped <== NotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
-    uid_not_escaped === 1;
     CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxUIDKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, uid_field, uid_field_len, uid_index);
+    CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxUIDKVPairLen)(string_bodies, ascii_jwt_payload_hash, uid_field_string_bodies, uid_field_len, uid_index);
 
     // Perform necessary checks on user id field. Some fields this might be in practice are "sub" or "email"
     signal input uid_name_len;
@@ -156,7 +160,7 @@ template identity(
     signal input uid_name[maxUIDNameLen];
     signal input uid_value[maxUIDValueLen];
 
-    JWTFieldCheck(maxUIDKVPairLen, maxUIDNameLen, maxUIDValueLen)(uid_field, uid_field_len, uid_index, uid_name_len, uid_value_index, uid_value_len, uid_colon_index, uid_name, uid_value);
+    ParseJWTFieldWithQuotedValue(maxUIDKVPairLen, maxUIDNameLen, maxUIDValueLen)(uid_field, uid_name, uid_value, uid_field_string_bodies, uid_field_len, uid_name_len, uid_value_index, uid_value_len, uid_colon_index);
 
     // Check extra field is in the JWT
     signal input extra_field[maxEFKVPairLen];
@@ -165,19 +169,19 @@ template identity(
     signal input use_extra_field;
     use_extra_field * (use_extra_field-1) === 0; // Ensure 0 or 1
 
-    signal ef_not_escaped <== NotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, extra_index);
-    signal ef_escaped <== NOT()(ef_not_escaped);
     signal ef_passes <== CheckSubstrInclusionPolyBoolean(max_ascii_jwt_payload_len, maxEFKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, extra_field, extra_field_len, extra_index);
 
-    // Fail if use_extra_field = 1, and ef_passes = 0
+    // Fail if use_extra_field = 1 and ef_passes = 0
     signal not_ef_passes <== NOT()(ef_passes);
-    signal ef_fail_1 <== AND()(use_extra_field, not_ef_passes);
-    signal ef_fail_2 <== AND()(use_extra_field, ef_escaped);
-    signal ef_fail <== OR()(ef_fail_1, ef_fail_2);
+    signal ef_fail <== AND()(use_extra_field, not_ef_passes);
     ef_fail === 0;
 
+    // Check that ef is not inside a string body
+    signal ef_start_char <== SelectArrayValue(max_ascii_jwt_payload_len)(string_bodies, extra_index);
+    ef_start_char === 0;
+
     // Check email verified field
-    signal input ev_field[maxEVKVPairLen]; // 'email_verified': True
+    signal input ev_field[maxEVKVPairLen];
     signal input ev_field_len;
     signal input ev_index;
 
@@ -191,33 +195,28 @@ template identity(
     // Boolean truth table for checking whether we should fail on the results of 'EmailVerifiedCheck'
     // and `CheckSubstrInclusionPolyBoolean`. We must fail if the uid name is 'email', and the provided
     // `ev_field` is not in the full JWT according to the substring check
-    // uid_is_email | ev_in_jwt | ev_fail_1
-    //     1        |     1     |   1
+    // uid_is_email | ev_in_jwt | ev_fail
+    //     1        |     1     |   1 
     //     1        |     0     |   0
     //     0        |     1     |   1
     //     0        |     0     |   1
     signal uid_is_email <== EmailVerifiedCheck(maxEVNameLen, maxEVValueLen, maxUIDNameLen)(ev_name, ev_value, ev_value_len, uid_name, uid_name_len);
     signal ev_in_jwt <== CheckSubstrInclusionPolyBoolean(max_ascii_jwt_payload_len, maxEVKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, ev_field, ev_field_len, ev_index);
     signal not_ev_in_jwt <== NOT()(ev_in_jwt);
-    signal ev_fail_1 <== AND()(uid_is_email, not_ev_in_jwt);
+    signal ev_fail <== AND()(uid_is_email, not_ev_in_jwt);
+    ev_fail === 0;
 
-    signal ev_not_escaped <== NotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, ev_index);
-    signal ev_escaped <== NOT()(ev_not_escaped);
-    signal ev_fail_2 <== AND()(uid_is_email, ev_escaped);
-    signal ev_fail <== OR()(ev_fail_1, ev_fail_2);
-    ev_fail === 0; // should not fail
-
-    JWTFieldCheck(maxEVKVPairLen, maxEVNameLen, maxEVValueLen)(ev_field, ev_field_len, ev_index, ev_name_len, ev_value_index, ev_value_len, ev_colon_index, ev_name, ev_value);
+    // Need custom logic here because some providers apparently do not follow the OIDC spec and put the email_verified value in quotes
+    ParseEmailVerifiedField(maxEVKVPairLen, maxEVNameLen, maxEVValueLen)(ev_field, ev_name, ev_value, ev_field_len, ev_name_len, ev_value_index, ev_value_len, ev_colon_index);
 
     // Check iss field is in the JWT
-    // Note that because `iss_field` is a public input, we assume the verifier will perform correctness checks on it outside of the circuit.
-    // E.g. In smart contract, check iss_field = https://accounts.google.com
+    // Note that because `iss_field` is a public input, we assume the verifier will perform correctness checks on it outside of the circuit. 
     signal input iss_field[maxIssKVPairLen];
+    signal input iss_field_string_bodies[maxIssKVPairLen];
     signal input iss_field_len;
     signal input iss_index;
-    signal iss_not_escaped <== NotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
-    iss_not_escaped === 1;
     CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxIssKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, iss_field, iss_field_len, iss_index);
+    CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxIssKVPairLen)(string_bodies, ascii_jwt_payload_hash, iss_field_string_bodies, iss_field_len, iss_index);
 
     // Perform necessary checks on iss field
     var iss_name_len = 3; // iss
@@ -227,10 +226,10 @@ template identity(
     signal input iss_name[maxIssNameLen];
     signal input iss_value[maxIssValueLen];
 
-    JWTFieldCheck(maxIssKVPairLen, maxIssNameLen, maxIssValueLen)(iss_field, iss_field_len, iss_index, iss_name_len, iss_value_index, iss_value_len, iss_colon_index, iss_name, iss_value);
+    ParseJWTFieldWithQuotedValue(maxIssKVPairLen, maxIssNameLen, maxIssValueLen)(iss_field, iss_name, iss_value, iss_field_string_bodies, iss_field_len, iss_name_len, iss_value_index, iss_value_len, iss_colon_index);
 
     // Check name of the iss field is correct
-    var required_iss_name[iss_name_len] = [105, 115, 115]; // "iss" in ASCII
+    var required_iss_name[iss_name_len] = [105, 115, 115]; // iss
     for (var i = 0; i < iss_name_len; i++) {
         iss_name[i] === required_iss_name[i];
     }
@@ -239,8 +238,6 @@ template identity(
     signal input iat_field[maxIatKVPairLen];
     signal input iat_field_len;
     signal input iat_index;
-    signal iat_not_escaped <== NotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
-    iat_not_escaped === 1;
     CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxIatKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, iat_field, iat_field_len, iat_index);
 
     // Perform necessary checks on iat field
@@ -251,16 +248,20 @@ template identity(
     signal input iat_name[maxIatNameLen];
     signal input iat_value[maxIatValueLen];
 
-    JWTFieldCheck(maxIatKVPairLen, maxIatNameLen, maxIatValueLen)(iat_field, iat_field_len, iat_index, iat_name_len, iat_value_index, iat_value_len, iat_colon_index, iat_name, iat_value);
+    ParseJWTFieldWithUnquotedValue(maxIatKVPairLen, maxIatNameLen, maxIatValueLen)(iat_field, iat_name, iat_value, iat_field_len, iat_name_len, iat_value_index, iat_value_len, iat_colon_index);
+
+    // Check that iat is not inside a string body
+    signal iat_start_char <== SelectArrayValue(max_ascii_jwt_payload_len)(string_bodies, iat_index);
+    iat_start_char === 0;
 
     // Check name of the iat field is correct
-    var required_iat_name[iat_name_len] = [105, 97, 116]; // "iat" in ASCII
+    var required_iat_name[iat_name_len] = [105, 97, 116]; // iat
     for (var i = 0; i < iat_name_len; i++) {
         iat_name[i] === required_iat_name[i];
     }
-
+    
     signal iat_field_elem <== ASCIIDigitsToField(maxIatValueLen)(iat_value, iat_value_len);
-
+    
     signal input exp_date;
     signal input exp_delta;
     signal jwt_not_expired <== LessThan(252)([exp_date, iat_field_elem + exp_delta]);
@@ -268,11 +269,11 @@ template identity(
 
     // Check nonce field is in the JWT
     signal input nonce_field[maxNonceKVPairLen];
+    signal input nonce_field_string_bodies[maxNonceKVPairLen];
     signal input nonce_field_len;
     signal input nonce_index;
-    signal nonce_not_escaped <== NotEscaped(max_ascii_jwt_payload_len)(ascii_jwt_payload, aud_index);
-    nonce_not_escaped === 1;
     CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxNonceKVPairLen)(ascii_jwt_payload, ascii_jwt_payload_hash, nonce_field, nonce_field_len, nonce_index);
+    CheckSubstrInclusionPoly(max_ascii_jwt_payload_len, maxNonceKVPairLen)(string_bodies, ascii_jwt_payload_hash, nonce_field_string_bodies, nonce_field_len, nonce_index);
 
     // Perform necessary checks on nonce field
     var nonce_name_len = 5; // nonce
@@ -282,15 +283,15 @@ template identity(
     signal input nonce_name[maxNonceNameLen];
     signal input nonce_value[maxNonceValueLen];
 
-    JWTFieldCheck(maxNonceKVPairLen, maxNonceNameLen, maxNonceValueLen)(nonce_field, nonce_field_len, nonce_index, nonce_name_len, nonce_value_index, nonce_value_len, nonce_colon_index, nonce_name, nonce_value);
+    ParseJWTFieldWithQuotedValue(maxNonceKVPairLen, maxNonceNameLen, maxNonceValueLen)(nonce_field, nonce_name, nonce_value, nonce_field_string_bodies, nonce_field_len, nonce_name_len, nonce_value_index, nonce_value_len, nonce_colon_index);
 
     // Check name of the nonce field is correct
-    var required_nonce_name[nonce_name_len] = [110, 111, 110, 99, 101]; // "nonce" in ASCII
+    var required_nonce_name[nonce_name_len] = [110, 111, 110, 99, 101]; // nonce
     for (var i = 0; i < nonce_name_len; i++) {
         nonce_name[i] === required_nonce_name[i];
     }
 
-    // TODO: Calculate nonce
+    // Calculate nonce
     signal input temp_pubkey[3]; // Represented as 3 elements of up to 31 bytes each to allow for pubkeys of up to 64 bytes each
     signal input temp_pubkey_len; // This is public and checked by the verifier. Included in nonce hash to prevent collisions
     signal input jwt_randomness;
@@ -299,7 +300,7 @@ template identity(
 
     // Check nonce is correct
     signal nonce_field_elem <== ASCIIDigitsToField(maxNonceValueLen)(nonce_value, nonce_value_len);
-
+    
     nonce_field_elem === computed_nonce;
 
     // Compute the address seed
@@ -313,7 +314,7 @@ template identity(
     signal addr_seed <== Poseidon(4)([pepper, private_aud_val_hashed, uid_value_hashed, uid_name_hashed]);
     log("addr seed is: ", addr_seed);
 
-    // Check public inputs are correct
+    // Check public inputs are correct 
 
     signal override_aud_val_hashed <== HashBytesToFieldWithLen(maxAudValueLen)(override_aud_value, override_aud_value_len);
     log("override aud val hash is: ", override_aud_val_hashed);
@@ -327,7 +328,7 @@ template identity(
     log("extra field hash is: ", hashed_extra_field);
     signal computed_public_inputs_hash <== Poseidon(14)([temp_pubkey[0], temp_pubkey[1], temp_pubkey[2], temp_pubkey_len, addr_seed, exp_date, exp_delta, hashed_iss_value, use_extra_field, hashed_extra_field, hashed_jwt_header, hashed_pubkey_modulus, override_aud_val_hashed, use_aud_override]);
     log("public inputs hash is: ", computed_public_inputs_hash);
-
+    
     signal input public_inputs_hash;
     public_inputs_hash === computed_public_inputs_hash;
 }
